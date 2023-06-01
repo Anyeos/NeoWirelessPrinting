@@ -29,11 +29,6 @@
 HardwareSerial PrinterSerial(1);
 #endif
 
-#ifndef DISABLE_TELNET
-WiFiServer telnetServer(23);
-WiFiClient telnetClient;
-#endif
-
 // Configurable parameters
 #define OCTOPRINT_VERSION "1.0"
 #define USE_FAST_SD                     // Use Default fast SD clock, comment if your SD is an old or slow one.
@@ -48,7 +43,7 @@ const uint32_t serialBauds[] = { 115200, 57600, 250000, 500000, 921600 };
 //const uint32_t serialBauds[] = { 115200 };
 
 #define API_VERSION     "0.1"
-#define VERSION         "0.7.0"
+#define VERSION         "0.7.1"
 
 #define MAX_FILES_PER_LIST  10 // Maximum number of files sent by the file listing json
 
@@ -112,13 +107,6 @@ inline void setLed(const bool status) {
   #if defined(LED_BUILTIN)
     digitalWrite(LED_BUILTIN, status ? LOW : HIGH);   // Note: LOW turn the LED on
   #endif
-}
-
-inline void telnetSend(const String line) {
-#ifndef DISABLE_TELNET
-  if (telnetClient && telnetClient.connected())     // send data to telnet client if connected
-    telnetClient.println(line);
-#endif
 }
 
 bool isFloat(const String value) {
@@ -718,12 +706,7 @@ void PrinterSetup() {
   for (int t = 0; t < MAX_SUPPORTED_EXTRUDERS; t++)
     toolTemperature[t] = { 0, 0 };
   bedTemperature = { 0, 0 };
-
-  #ifndef DISABLE_TELNET
-  telnetServer.begin();
-  telnetServer.setNoDelay(true);
-  #endif
-
+  
   initUploadedFilename();
 
   // Info page
@@ -909,22 +892,22 @@ void PrinterSetup() {
 
     case 8:
       if (commandQueue.push("G91"))
-        result = commandQueue.push("G0 Y"+String(distance));
+        result = commandQueue.push("G0 Y"+String(distance)+" F3000");
       break;
 
     case 2:
       if (commandQueue.push("G91"))
-        result = commandQueue.push("G0 Y-"+String(distance));
+        result = commandQueue.push("G0 Y-"+String(distance)+" F3000");
       break;
     
     case 4:
       if (commandQueue.push("G91"))
-        result = commandQueue.push("G0 X-"+String(distance));
+        result = commandQueue.push("G0 X-"+String(distance)+" F3000");
       break;
 
     case 6:
       if (commandQueue.push("G91"))
-        result = commandQueue.push("G0 X"+String(distance));
+        result = commandQueue.push("G0 X"+String(distance)+" F3000");
       break;
 
     // Z
@@ -1395,7 +1378,6 @@ void ReceiveResponses() {
   */
 }
 
-static String clientCommand = "";
 void PrinterHandle() {
   //********************
   //* Printer handling *
@@ -1437,41 +1419,8 @@ void PrinterHandle() {
 
   SendCommands();
   ReceiveResponses();
-
-  //*******************
-  //* Telnet handling *
-  //*******************
-  // look for Client connect trial
-#ifndef DISABLE_TELNET
-  if (telnetServer.hasClient() && (!telnetClient || !telnetClient.connected())) {
-    if (telnetClient)
-      telnetClient.stop();
-
-    //telnetClient = telnetServer.accept();
-    telnetClient = telnetServer.available();
-    telnetClient.flush();  // clear input buffer, else you get strange characters
-  }
-
-  while (telnetClient && telnetClient.available() > 0) {  // get data from Client
-    //yield();
-    char ch = telnetClient.read();
-    if (ch == '\r' || ch == '\n') {
-      if (clientCommand.length() > 0) {
-        if (!commandQueue.push(clientCommand)) {
-          telnetSend("command queue full");
-        }
-        //telnetSend("Received: "+clientCommand);
-        clientCommand = "";
-      }
-    }
-    else
-    {
-      //telnetSend("receiving: "+String(ch));
-      clientCommand += String(ch);
-      //if (ch == '\3') // Ctrl+C
-        //telnetClient.stop();
-    }
-  }
-#endif
+  #ifndef DISABLE_TELNET
+  TelnetHandle();
+  #endif
 }
 

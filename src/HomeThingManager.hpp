@@ -369,16 +369,22 @@ String HomeThingManager::file_basefile_gz(const String &filename) {
 
 void HomeThingManager::website() {
    Log.info("Begin main website." CR);
-   webServer.serveStatic("/", FileFS, "/w")
+   webServer.serveStatic("/", FileFS, "/w/")
       .setDefaultFile(file_basefile_gz(_files.names[0]).c_str());
-      
-   for (uint8_t i=0; i<_files.count; i++) {
+   /*webServer.on("/", HTTP_GET,[&](AsyncWebServerRequest *request) {
+      request->redirect("/"+file_basefile_gz(_files.names[0]));
+   });*/
+
+   /*for (uint8_t i=0; i<_files.count; i++) {
       String filename = String(_files.names[i]);
       String ext = file_extension_gz(filename);
       ext.toLowerCase();
+      String basename = filename;
       if (ext == String("gz")) {
-         String basename = file_basename_gz(filename);
-         webServer.serveStatic(String(String("/")+basename).c_str(), FileFS, String(String("/w/")+filename).c_str());
+         basename = file_basename_gz(filename);
       }
-   }
+      webServer.serveStatic(String(String("/")+basename).c_str(), FileFS, String(String("/w/")+filename).c_str());
+      //webServer.on(String(String("/")+basename).c_str(), HTTP_GET,[&](AsyncWebServerRequest *request) {
+      //});
+   }*/
 }

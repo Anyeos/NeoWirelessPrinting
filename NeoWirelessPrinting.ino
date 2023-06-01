@@ -19,27 +19,23 @@
 
 //#define DISABLE_DATETIME
 #define DISABLE_LOGGING
+//#define DISABLE_TELNET
 #define DISABLE_WEBOFTHINGS
 //#define HTTP_PORT 80
-#define DISABLE_TELNET
 
 #define BRAND_NAME "Neo Wireless Printing"
 const char *hostName = "neowifiprinting";
 
-#define NUMBER_OF_FILES 12
+#define NUMBER_OF_FILES 8
 const char *files[NUMBER_OF_FILES] = {
   "index.html.gz",
   "setup.html.gz",
   "wifi.html.gz",
   "sistema.html.gz",
-  "grids-responsive-min.css.gz",
-  "index.css.gz",
-  "pure-min.css.gz",
   "styles.css.gz",
-  "typicons.css.gz",
   "typicons.woff2",
-  "ui.js.gz",
-  "light-search.js.gz",
+  "combined.css.gz",
+  "combined.js.gz",
 };
 
 // Global vars
@@ -53,6 +49,7 @@ HomeThingManager::FilesList Files = {
 };
 HomeThingManager ThingManager(BRAND_NAME, hostName, Files);
 
+#include "Telnet.hpp"
 #include "Printer.hpp"
 
 #ifndef DISABLE_DATETIME
@@ -90,6 +87,10 @@ void setup() {
   #if defined(LED_BUILTIN)
     pinMode(LED_BUILTIN, OUTPUT);     // Initialize the LED_BUILTIN pin as an output
   #endif
+  #ifndef DISABLE_TELNET
+  TelnetSetup();
+  #endif
+
   PrinterSetup();
 
   webServer.on("/deleteindex", HTTP_GET, [&](AsyncWebServerRequest *request) {
