@@ -21,6 +21,7 @@
 #define DISABLE_LOGGING
 #define DISABLE_WEBOFTHINGS
 //#define HTTP_PORT 80
+#define DISABLE_TELNET
 
 #define BRAND_NAME "Neo Wireless Printing"
 const char *hostName = "neowifiprinting";
@@ -168,6 +169,7 @@ void setup() {
 
   ArduinoOTA.onStart([]() {
     ota_uploading = true;
+    webServer.end();
   });
 
   ArduinoOTA.onEnd([]() {
@@ -196,7 +198,7 @@ void setup() {
 void loop() {
   ms = millis();
   ThingManager.handle();
-  yield();
+  //yield();
   if (!ota_uploading) 
     PrinterHandle();
 };

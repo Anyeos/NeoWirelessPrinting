@@ -371,7 +371,7 @@ void HomeThingManager::website() {
    Log.info("Begin main website." CR);
    webServer.serveStatic("/", FileFS, "/w")
       .setDefaultFile(file_basefile_gz(_files.names[0]).c_str());
-
+      
    for (uint8_t i=0; i<_files.count; i++) {
       String filename = String(_files.names[i]);
       String ext = file_extension_gz(filename);

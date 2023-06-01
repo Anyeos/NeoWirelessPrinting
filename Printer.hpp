@@ -29,8 +29,10 @@
 HardwareSerial PrinterSerial(1);
 #endif
 
+#ifndef DISABLE_TELNET
 WiFiServer telnetServer(23);
 WiFiClient telnetClient;
+#endif
 
 // Configurable parameters
 #define OCTOPRINT_VERSION "1.0"
@@ -49,6 +51,8 @@ const uint32_t serialBauds[] = { 115200, 57600, 250000, 500000, 921600 };
 #define VERSION         "0.7.0"
 
 #define MAX_FILES_PER_LIST  10 // Maximum number of files sent by the file listing json
+
+#define MIN_HEAP_TO_SERVICE 18000
 
 // Information from M115
 String fwMachineType = "Unknown";
@@ -95,6 +99,14 @@ uint32_t temperatureTimer;
 Temperature toolTemperature[MAX_SUPPORTED_EXTRUDERS];
 Temperature bedTemperature;
 
+bool NoHeapToService(AsyncWebServerRequest * request) {
+  if (ESP.getFreeHeap() < MIN_HEAP_TO_SERVICE) {
+    request->send(500, "text/html", "Not enough heap!");
+    return true;
+  }
+  return false;
+}
+
 
 inline void setLed(const bool status) {
   #if defined(LED_BUILTIN)
@@ -103,8 +115,10 @@ inline void setLed(const bool status) {
 }
 
 inline void telnetSend(const String line) {
+#ifndef DISABLE_TELNET
   if (telnetClient && telnetClient.connected())     // send data to telnet client if connected
     telnetClient.println(line);
+#endif
 }
 
 bool isFloat(const String value) {
@@ -180,7 +194,7 @@ bool parseTemperatures(const String response) {
     int e = parsePrusaHeatingExtruder(response);
     tempResponse = e >= 0 && e < MAX_SUPPORTED_EXTRUDERS && parsePrusaHeatingTemp(response, "T", &toolTemperature[e]);
     tempResponse |= parsePrusaHeatingTemp(response, "B", &bedTemperature);
-    }
+  }
 
   return tempResponse;
 }
@@ -206,7 +220,7 @@ inline String getUploadedFilename() {
 
 void handlePrint() {
   static FileWrapper gcodeFile;
-  static float prevM73Completion, prevM532Completion = 0.0;
+  static float prevM73Completion = 0.0, prevM532Completion = 0.0;
 
   if (isPrinting) {
     const bool abortPrint = (restartPrint || cancelPrint);
@@ -295,7 +309,7 @@ String lastUploadedFullname = "";
 String tempFilename = "";
 size_t tmpFileSize = 0;
 void handleUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
-  static FileWrapper file;
+  FileWrapper file;
 
   if (!index) {
     int pos = filename.lastIndexOf("/");
@@ -705,13 +719,16 @@ void PrinterSetup() {
     toolTemperature[t] = { 0, 0 };
   bedTemperature = { 0, 0 };
 
+  #ifndef DISABLE_TELNET
   telnetServer.begin();
   telnetServer.setNoDelay(true);
+  #endif
 
   initUploadedFilename();
 
   // Info page
   webServer.on("/info", HTTP_GET, [](AsyncWebServerRequest * request) {
+    if (NoHeapToService(request)) return;
     String message = "<pre>"
                      "Free heap: " + String(ESP.getFreeHeap()) + "\n\n"
                      "File system: " + storageFS.getActiveFS() + "\n";
@@ -741,6 +758,7 @@ void PrinterSetup() {
 
 #ifndef DISABLE_LOGGING
   webServer.on("/log", HTTP_GET, [](AsyncWebServerRequest * request) {
+    if (NoHeapToService(request)) return;
     int max_lines = 10;
     if (request->hasParam("lines")) {
       AsyncWebParameter *p = request->getParam("lines");
@@ -767,8 +785,9 @@ void PrinterSetup() {
 #endif
 
   webServer.on("/status", HTTP_GET, [&](AsyncWebServerRequest *request) {
+    if (NoHeapToService(request)) return;
     AsyncResponseStream *response = request->beginResponseStream("application/json");
-    DynamicJsonDocument doc(1300);
+    DynamicJsonDocument doc(2048);
 
     doc["name"] = getDeviceName();
     doc["state"] = getState();
@@ -813,6 +832,7 @@ void PrinterSetup() {
   });
 
   webServer.on("/files/list", HTTP_GET, [&](AsyncWebServerRequest *request) {
+    if (NoHeapToService(request)) return;
     uint8_t index = 0;
     if (request->hasParam("i")) {
       AsyncWebParameter *p = request->getParam("i");
@@ -820,20 +840,21 @@ void PrinterSetup() {
     }
 
     AsyncResponseStream *response = request->beginResponseStream("application/json");
-    DynamicJsonDocument doc(1536);
+    DynamicJsonDocument doc(2048);
     filesList(doc, index);
     serializeJson(doc, *response);
     request->send(response);
   });
 
   webServer.on("/files/delete", HTTP_GET, [&](AsyncWebServerRequest *request) {
+    if (NoHeapToService(request)) return;
     String id = "";
     if (request->hasParam("id")) {
       AsyncWebParameter *p = request->getParam("id");
       id = p->value();
     }
     AsyncResponseStream *response = request->beginResponseStream("application/json");
-    DynamicJsonDocument doc(256);
+    DynamicJsonDocument doc(1024);
     filesList(doc, 0, id);
     if (doc["files"][0]["id"] == id) {
       String filename = doc["files"][0]["name"];
@@ -844,13 +865,14 @@ void PrinterSetup() {
   });
 
   webServer.on("/files/choose", HTTP_GET, [&](AsyncWebServerRequest *request) {
+    if (NoHeapToService(request)) return;
     String id = "";
     if (request->hasParam("id")) {
       AsyncWebParameter *p = request->getParam("id");
       id = p->value();
     }
     AsyncResponseStream *response = request->beginResponseStream("application/json");
-    DynamicJsonDocument doc(256);
+    DynamicJsonDocument doc(1024);
     filesList(doc, 0, id);
     if (doc["files"][0]["id"] == id) {
       initUploadedFilename(doc["files"][0]["name"]);
@@ -860,6 +882,7 @@ void PrinterSetup() {
   });
 
   webServer.on("/move", HTTP_GET, [&](AsyncWebServerRequest *request) {    
+    if (NoHeapToService(request)) return;
     bool result = false;
     if (isPrinting)
     {
@@ -929,10 +952,10 @@ void PrinterSetup() {
 
   // Download page
   webServer.on("/download", HTTP_GET, [](AsyncWebServerRequest * request) {
+    if (NoHeapToService(request)) return;
+    static size_t downloadBytesLeft;
+    static FileWrapper downloadFile;
     AsyncWebServerResponse *response = request->beginResponse("application/x-gcode", uploadedFileSize, [](uint8_t *buffer, size_t maxLen, size_t index) -> size_t {
-      static size_t downloadBytesLeft;
-      static FileWrapper downloadFile;
-
       if (!index) {
         downloadFile = storageFS.open(uploadedFullname);
         downloadBytesLeft = uploadedFileSize;
@@ -941,13 +964,14 @@ void PrinterSetup() {
       bytes = min(bytes, (size_t)1024);
       bytes = downloadFile.read(buffer, bytes);
       downloadBytesLeft -= bytes;
-      if (bytes <= 0)
+      if (bytes <= 0) {
         downloadFile.close();
+      }
 
       return bytes;
     });
     response->addHeader("Content-Disposition", "attachment; filename=\"" + getUploadedFilename()+ "\"");
-    request->send(response);    
+    request->send(response);
   });
 
   webServer.on("/api/login", HTTP_POST, [](AsyncWebServerRequest * request) {
@@ -963,9 +987,10 @@ void PrinterSetup() {
                                            "}");  });
 
   webServer.on("/api/connection", HTTP_GET, [](AsyncWebServerRequest * request) {
+    if (NoHeapToService(request)) return;
     // http://docs.octoprint.org/en/master/api/connection.html#get-connection-settings
     AsyncResponseStream *response = request->beginResponseStream("application/json");
-    DynamicJsonDocument doc(1024);
+    DynamicJsonDocument doc(2048);
     
     doc["current"]["state"] = getState();
     doc["current"]["port"] = "Serial";
@@ -1007,6 +1032,7 @@ void PrinterSetup() {
   // File Operations
   // For Slic3r OctoPrint compatibility
   webServer.on("/api/files/local", HTTP_POST, [](AsyncWebServerRequest * request) {
+    if (NoHeapToService(request)) return;
     // https://docs.octoprint.org/en/master/api/files.html?highlight=api%2Ffiles%2Flocal#upload-file-or-create-folder
     lcd("Received");
     playSound();
@@ -1042,6 +1068,7 @@ void PrinterSetup() {
 
   // Pending: http://docs.octoprint.org/en/master/api/files.html#retrieve-all-files
   webServer.on("/api/files", HTTP_GET, [](AsyncWebServerRequest * request) {
+    if (NoHeapToService(request)) return;
     request->send(200, "application/json", "{\r\n"
                                            "  \"files\": {\r\n"
                                            "  }\r\n"
@@ -1049,13 +1076,14 @@ void PrinterSetup() {
   });
 
   webServer.on("/api/job", HTTP_GET, [](AsyncWebServerRequest * request) {
+    if (NoHeapToService(request)) return;
     // http://docs.octoprint.org/en/master/api/job.html#retrieve-information-about-the-current-job
     int32_t printTimeLeft = 0;
     if (isPrinting) {
       printTimeLeft = (printCompletion > 0) ? printTime / printCompletion * (100 - printCompletion) : INT32_MAX;
     }
     AsyncResponseStream *response = request->beginResponseStream("application/json");
-    DynamicJsonDocument doc(1024);
+    DynamicJsonDocument doc(2048);
 
     doc["job"]["file"]["name"] = getUploadedFilename();
     doc["job"]["file"]["origin"] = "local";
@@ -1110,7 +1138,8 @@ void PrinterSetup() {
       request->send(400, "text/plain", "file not supported");
     },
     [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
-      static String content;
+      if (NoHeapToService(request)) return;
+      String content;
 
       if (!index)
         content = "";
@@ -1143,7 +1172,8 @@ void PrinterSetup() {
       request->send(400, "text/plain", "file not supported");
     },
     [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
-      static String content;
+      if (NoHeapToService(request)) return;
+      String content;
 
       if (!index)
         content = "";
@@ -1171,10 +1201,11 @@ void PrinterSetup() {
   });
 
   webServer.on("/api/printer", HTTP_GET, [](AsyncWebServerRequest * request) {
+    if (NoHeapToService(request)) return;
+
     // https://docs.octoprint.org/en/master/api/printer.html#retrieve-the-current-printer-state
-    
     AsyncResponseStream *response = request->beginResponseStream("application/json");
-    DynamicJsonDocument doc(1024);
+    DynamicJsonDocument doc(2048);
 
     for (uint8_t t = 0; t < fwExtruders; ++t) {
       String tooln = "tool"+String(t);
@@ -1411,6 +1442,7 @@ void PrinterHandle() {
   //* Telnet handling *
   //*******************
   // look for Client connect trial
+#ifndef DISABLE_TELNET
   if (telnetServer.hasClient() && (!telnetClient || !telnetClient.connected())) {
     if (telnetClient)
       telnetClient.stop();
@@ -1440,5 +1472,6 @@ void PrinterHandle() {
         //telnetClient.stop();
     }
   }
+#endif
 }
 
