@@ -1,0 +1,116 @@
+.switch {
+	position: relative;
+	display: inline-block;
+	width: 60px;
+	height: 24px;
+	vertical-align: bottom;
+}
+
+.switch input {
+	opacity: 0;
+	width: 0;
+	height: 0;
+}
+
+.switch-label {
+	position: absolute;
+	cursor: pointer;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background-color: #ccc;
+	max-width: 64px;
+	transition: .4s;
+	-webkit-transition: .4s;
+}
+
+.switch-label:before {
+	position: absolute;
+	content: '';
+	height: 16px;
+	width: 26px;
+	left: 4px;
+	bottom: 4px;
+	background-color: white;
+	transition: .4s;
+	-webkit-transition: .4s;
+}
+
+input:checked + .switch-label {
+	background-color: #5ab300;
+}
+input:focus + .switch-label {
+	box-shadow: 0 0 1px #000000;
+}
+input:checked + .switch-label:before {
+	transform: translateX(26px);
+	-webkit-transform: translateX(26px);
+	-ms-transform: translateX(26px);
+}
+
+.bar-percent {
+	display: inline-block;
+	background-color: #d7d7d7;
+	width: 80%;
+}
+.bar-percent-val {
+	background-color: #ffb300;
+	color: #000;
+	padding: 2px;
+	text-align: right;
+}
+
+.bar-percent-wifi {
+	background-color: #7bff00;
+	color: #000;
+	padding: 2px;
+	text-align: right;
+}
+
+
+.card {
+	background: #eee;
+	padding: 10px;
+	box-shadow: 0px 0px 10px #555;
+	border: 2px solid #ddd;
+	vertical-align: top;
+}
+
+.block {
+	margin: 10px;
+}
+
+.relay-header {
+	box-shadow: 0px 0px 10px #555;
+}
+
+
+.button-warning,
+.button-secondary {
+	 color: white;
+	 border-radius: 4px;
+	 text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+}
+
+.button-warning {
+	background: rgb(223, 117, 20);
+}
+
+.msg-error {
+	color: white;
+	background: rgb(202, 60, 60);
+}
+
+.big-icon {
+	font-size: 2em;
+	text-align: center;
+}
+
+.printer-state {
+	text-align: left;
+ }
+
+ .header h2 {
+	color: #000;
+ }

@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neo Wireless Printing</title>
+    <link rel="stylesheet" href="pure-min.css">
+    <link rel="stylesheet" href="grids-responsive-min.css">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="typicons.css">
+    <link rel="stylesheet" href="index.css">
+</head>
+<body onload="autorun()">
+
+<div id="layout">
+    <a href="#menu" id="menuLink" class="menu-link">
+        <span></span>
+    </a>
+
+    <div id="menu">
+        <div class="pure-menu">
+           <a class="pure-menu-heading">MENU</a>
+           <ul class="pure-menu-list">
+                 <li class="pure-menu-item"><a href="index.html" class="pure-menu-link"><i class="typcn typcn-home"></i> Home</a></li>
+                 <li class="pure-menu-item"><a href="setup.html" class="pure-menu-link"><i class="typcn typcn-cog"></i> Setup</a></li>
+                 <li class="pure-menu-item menu-item-divided pure-menu-selected">
+                    <a href="#" class="pure-menu-link">Advanced</a>
+                 </li>
+                 <li class="pure-menu-item pure-menu-active"><a href="wifi.html" class="pure-menu-link"><i class="typcn typcn-wi-fi"></i> WiFi</a></li>
+                 <li class="pure-menu-item"><a href="sistema.html" class="pure-menu-link"><i class="typcn "></i> System</a></li>
+           </ul>
+        </div>
+    </div>
+
+    <div id="main" class="layouts">
+        <div class="header">
+            <h3>WiFi</h3>           
+            <p>If you opened this page by mistake please click <a href="index.html">"Home"</a> to return.</p>
+        </div>
+        <div class="content">
+            <div class="wifi-info">
+                <h1>
+                    <i class="typcn typcn-wi-fi"></i>
+                    <div class='bar-percent' title="Señal">
+                        <div id="info_rssi" class='bar-percent-wifi' style='width: 0%;'>0%</div>
+                    </div>
+                </h1>
+                <h2 id="info_ssid"></h2>
+                <div class="pure-g">
+                    <span class="pure-u-1 pure-u-md-1-2">
+                        IP:
+                    </span>
+                    <span id="info_ip" class="pure-u-1 pure-u-md-1-2">
+                        
+                    </span>
+                </div>
+                <div class="pure-g">
+                    <span class="pure-u-1 pure-u-md-1-2">
+                        Puerta de enlace:
+                    </span>
+                    <span id="info_gw" class="pure-u-1 pure-u-md-1-2">
+                        
+                    </span>
+                </div>
+            </div>
+
+                    <form id="wificonfig" class="pure-form pure-form-aligned" action="/wificonfig" method="POST">
+                        <h4>Settings</h4>
+                        <p><i>Warning:</i> Changing next some values can leave your device unreachable from this network.</p>
+                        <input type="hidden" name="url" value="/wifi.html" />
+                        <fieldset>
+                            <div class="pure-control-group">
+                                <label for="ssid">SSID:</label>
+                                <input type="text" id="ssid" name="ssid" />
+                            </div>
+                            <div class="pure-control-group">
+                                <label for="psk">PSK:</label>
+                                <input type="password" id="psk" name="psk" />
+                                <span class="pure-form-message-inline">
+                                    <!-- <label for="psk_show"><i class="typcn typcn-eye"></i></label> -->
+                                    <input type="checkbox" id="psk_show" onclick="toggleInputPassword('psk');" title="Mostrar" />
+                                </span>
+                            </div>
+                            <div class="pure-control-group">
+                                <label for="ap">AP mode:</label>
+                                <label class="switch">
+                                    <input id="ap" type="checkbox" name="ap"><span class='switch-label'></span>
+                                </label>
+                            </div>
+
+                            <h4>
+                                <input type="checkbox" name="static" id="static" onclick="toggleField('static_ip_block', this);" />
+                                <label for="static">Fixed IP</label>
+                            </h4>
+                            <div id="static_ip_block">
+                                <div class="pure-control-group">
+                                    <label for="ip">IP:</label>
+                                    <input type="text" id="ip" name="ip" placeholder="192.168.1.4" />
+                                </div>
+                                <div class="pure-control-group">
+                                    <label for="sn">Subnet mask:</label>
+                                    <input type="text" id="sn" name="sn" placeholder="255.255.255.0" />
+                                </div>
+                                <div class="pure-control-group">
+                                    <label for="gw">Default gateway:</label>
+                                    <input type="text" id="gw" name="gw" placeholder="192.168.1.1" />
+                                </div>
+                            </div>
+                        </fieldset>
+                        <fieldset class="pure-group">
+                            <button type="submit" class="pure-button pure-button-primary">Save</button>
+                        </fieldset>
+                    </form>
+                    <div id="scanned">
+
+                    </div>
+        </div>
+    </div>
+</div>
+
+<script src="ui.js"></script>
+<!-- <script src="menuactive.js"></script> -->
+
+<script>
+function toggleInputPassword(n) {
+  var x = document.getElementById(n);
+  if (x.type === 'password') {
+    x.type = 'text';
+  } else {
+    x.type = 'password';
+  }
+}
+
+function toggleField(f, y) {
+  var x = document.getElementById(f);
+  if (y.checked) {
+     x.style.display = 'block';
+  } else {
+     x.style.display = 'none';
+  }
+}
+
+function chooseSSID(x) {
+  var y = document.getElementById('ssid');
+  y.value = x.innerHTML;
+}
+
+async function configUpdate() {
+    const fetchConf = await fetch('/wificonfig');
+    const conf = await fetchConf.json();
+
+    const ssid = document.getElementById('ssid');
+    const psk = document.getElementById('psk');
+    const ap = document.getElementById('ap');
+    const static = document.getElementById('static');
+    const ip = document.getElementById('ip');
+    const sn = document.getElementById('sn');
+    const gw = document.getElementById('gw');
+    ssid.value = conf['ssid'];
+    psk.value = conf['psk'];
+    ap.checked = conf['ap']>0?true:false;
+    static.checked = conf['static']>0?true:false;
+    toggleField('static_ip_block', static);
+    ip.value = conf['ip'];
+    sn.value = conf['sn'];
+    gw.value = conf['gw'];
+}
+
+
+async function wifiUpdate() {
+  const fetchSt = await fetch('/wifistatus');
+  const st = await fetchSt.json();
+
+  const info_rssi = document.getElementById('info_rssi');
+  var rssi = Math.round(((90+st['rssi'])/90.0)*100)+'%';
+  info_rssi.innerText=rssi;
+  info_rssi.style.width=rssi;
+
+  const info_ssid = document.getElementById('info_ssid');
+  info_ssid.innerText=st['ssid'];
+
+  const info_ip = document.getElementById('info_ip');
+  info_ip.innerHTML=st['ip']+' / '+st['netmask'];
+
+  const info_gw = document.getElementById('info_gw');
+  info_gw.innerHTML=st['gateway'];
+}
+
+async function wifiScan() {
+  const fetchR = await fetch('/wifiscan');
+  const doc = await fetchR.json();
+  if (doc === null) return;
+
+  const s = document.getElementById('scanned');
+  var html = '';
+  doc.forEach( function(i) {
+    html += '<div class="pure-g">';
+    html += '<div class="pure-u-1 pure-u-md-1-4"><a href="#" onclick="chooseSSID(this);">'+i.ssid+'</a></div>';
+    html += '<div class="pure-u-1 pure-u-md-1-4">'+Math.round(((90+i.rssi)/90.0)*100)+'%</div>';
+    html += '<div class="pure-u-1 pure-u-md-1-4">'+i.bssid+'</div>';
+    var auth = (i.auth != 7)?'*':' ';
+    html += '<div class="pure-u-1 pure-u-md-1-4">'+auth+'</div>';
+    html += '</div>';
+  });
+
+  s.innerHTML = html;
+}
+
+function autorun() {
+  configUpdate();
+  wifiUpdate();
+  setInterval(wifiUpdate, 1000);
+  setInterval(wifiScan, 5000);
+}
+</script>
+</body>
+</html>
