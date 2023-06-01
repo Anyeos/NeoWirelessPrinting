@@ -292,12 +292,12 @@ bool loadUploadedFullname() {
 }
 
 
-uint8_t receivecount = 0;
-String lastUploadedFullname = "";
-String tempFilename = "";
-size_t tmpFileSize = 0;
 void handleUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
-  FileWrapper file;
+  static uint8_t receivecount = 0;
+  static String lastUploadedFullname = "";
+  static String tempFilename = "";
+  static size_t tmpFileSize = 0;
+  static FileWrapper file;
 
   if (!index) {
     int pos = filename.lastIndexOf("/");
@@ -328,7 +328,7 @@ void handleUpload(AsyncWebServerRequest *request, String filename, size_t index,
   //  return;
 
   if (file) {
-    file.write(data, len);
+    len = file.write(data, len);
     file.flush();
   }
 
@@ -338,6 +338,7 @@ void handleUpload(AsyncWebServerRequest *request, String filename, size_t index,
       uploadedFileCreationTime = DateTime.getTime();
       file.close();
     }
+
     tmpFileSize = index + len;
     // Early solution: A small size can tell us that there are not a gcode file
     // Why: Cura send us two additional files with "true" or "false" inside.
@@ -604,7 +605,7 @@ void initUploadedFilename(String filename = "") {
   {
     if (loadUploadedFullname())
       file = storageFS.open(uploadedFullname);
-    else
+    if (!file)
     {
       FileWrapper dir = storageFS.open("/");
       if (dir) {

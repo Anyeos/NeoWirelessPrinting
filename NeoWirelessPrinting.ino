@@ -1,19 +1,19 @@
-/* 
- * This file is part of Neo Wireless Printing (https://github.com/Anyeos/NeoWirelessPrinting).
- * Copyright (c) 2023 Andrés G. Schwartz (Anyeos).
- * 
- * This program is free software: you can redistribute it and/or modify  
- * it under the terms of the GNU General Public License as published by  
- * the Free Software Foundation, version 3.
- *
- * This program is distributed in the hope that it will be useful, but 
- * WITHOUT ANY WARRANTY; without even the implied warranty of 
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU 
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License 
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
+/*
+   This file is part of Neo Wireless Printing (https://github.com/Anyeos/NeoWirelessPrinting).
+   Copyright (c) 2023 Andrés G. Schwartz (Anyeos).
+
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, version 3.
+
+   This program is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+   General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program. If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #include <Arduino.h>
 
@@ -58,8 +58,8 @@ uint16_t StringTimeToMinutes(String stime)
   String hours = "";
   String minutes = "";
   bool is_hours = true;
-  for (uint8_t i=0; i<stime.length(); i++) {
-    if (stime[i] == ':'){
+  for (uint8_t i = 0; i < stime.length(); i++) {
+    if (stime[i] == ':') {
       is_hours = false;
     } else {
       if (is_hours)
@@ -68,7 +68,7 @@ uint16_t StringTimeToMinutes(String stime)
         minutes += stime[i];
     }
   }
-  return hours.toInt()*60+minutes.toInt();
+  return hours.toInt() * 60 + minutes.toInt();
 }
 
 String MinutesToStringTime(uint16_t minutes)
@@ -84,23 +84,23 @@ String MinutesToStringTime(uint16_t minutes)
 
 
 void setup() {
-  #if defined(LED_BUILTIN)
-    pinMode(LED_BUILTIN, OUTPUT);     // Initialize the LED_BUILTIN pin as an output
-  #endif
-  #ifndef DISABLE_TELNET
+#if defined(LED_BUILTIN)
+  pinMode(LED_BUILTIN, OUTPUT);     // Initialize the LED_BUILTIN pin as an output
+#endif
+#ifndef DISABLE_TELNET
   TelnetSetup();
-  #endif
+#endif
 
   PrinterSetup();
 
-  webServer.on("/deleteindex", HTTP_GET, [&](AsyncWebServerRequest *request) {
-    if(WiFiService.isConfigured() && !request->authenticate(ThingManager.getAdmin().c_str(), ThingManager.getAdminPass().c_str()))
+  webServer.on("/deleteindex", HTTP_GET, [&](AsyncWebServerRequest * request) {
+    if (WiFiService.isConfigured() && !request->authenticate(ThingManager.getAdmin().c_str(), ThingManager.getAdminPass().c_str()))
       return request->requestAuthentication();
 
     if (request->hasParam("prompt")) {
       AsyncWebParameter *p = request->getParam("prompt");
       if (p->value() == "BORRAR SITIO") {
-        FileFS.remove(String("/w/")+String(files[0]));
+        FileFS.remove(String("/w/") + String(files[0]));
         request->send(200, "text/plain", "Index borrado. Espera y recarga para ir al Step 2.");
         ThingManager.restart_device = true;
         return;
@@ -109,29 +109,29 @@ void setup() {
     request->redirect("/");
   });
 
-  webServer.on("/restart", HTTP_GET, [&](AsyncWebServerRequest *request) {
-    if(WiFiService.isConfigured() && !request->authenticate(ThingManager.getAdmin().c_str(), ThingManager.getAdminPass().c_str()))
+  webServer.on("/restart", HTTP_GET, [&](AsyncWebServerRequest * request) {
+    if (WiFiService.isConfigured() && !request->authenticate(ThingManager.getAdmin().c_str(), ThingManager.getAdminPass().c_str()))
       return request->requestAuthentication();
     ThingManager.restart_device = true;
     request->redirect("/");
   });
 
-  webServer.on("/factoryreset", HTTP_GET, [&](AsyncWebServerRequest *request) {
-    if(WiFiService.isConfigured() && !request->authenticate(ThingManager.getAdmin().c_str(), ThingManager.getAdminPass().c_str()))
+  webServer.on("/factoryreset", HTTP_GET, [&](AsyncWebServerRequest * request) {
+    if (WiFiService.isConfigured() && !request->authenticate(ThingManager.getAdmin().c_str(), ThingManager.getAdminPass().c_str()))
       return request->requestAuthentication();
     request->redirect("/");
     ThingManager.factory_reset();
     return;
   });
 
-  webServer.on("/config", HTTP_GET | HTTP_POST, [&](AsyncWebServerRequest *request) {
-    if(WiFiService.isConfigured() && !request->authenticate(ThingManager.getAdmin().c_str(), ThingManager.getAdminPass().c_str()))
+  webServer.on("/config", HTTP_GET | HTTP_POST, [&](AsyncWebServerRequest * request) {
+    if (WiFiService.isConfigured() && !request->authenticate(ThingManager.getAdmin().c_str(), ThingManager.getAdminPass().c_str()))
       return request->requestAuthentication();
 
     if (request->method() == HTTP_GET) {
       AsyncResponseStream *response = request->beginResponseStream("application/json");
       DynamicJsonDocument doc(1024);
-      
+
       doc["user"] = ThingManager.getAdmin();
       doc["hostname"] = ThingManager.getHostName();
       doc["version"] = VERSION;
@@ -148,21 +148,21 @@ void setup() {
     const char* field_pass = "pass";
 
     int params = request->params();
-    for(int i=0;i<params;i++){
+    for (int i = 0; i < params; i++) {
       AsyncWebParameter* p = request->getParam(i);
-        if (p->name() == (field_hostname)) {
-          if (p->value().length() > 0)
-            ThingManager.setHostName(p->value());
-          else
-            ThingManager.setHostNameUnique(hostName);
-        }
-        if (p->name() == (field_user)) {
-          ThingManager.setAdmin(p->value());
-        }
-        if (p->name() == (field_pass)) {
-          if (p->value().length() > 0)
-            ThingManager.setAdminPass(p->value());
-        }
+      if (p->name() == (field_hostname)) {
+        if (p->value().length() > 0)
+          ThingManager.setHostName(p->value());
+        else
+          ThingManager.setHostNameUnique(hostName);
+      }
+      if (p->name() == (field_user)) {
+        ThingManager.setAdmin(p->value());
+      }
+      if (p->name() == (field_pass)) {
+        if (p->value().length() > 0)
+          ThingManager.setAdminPass(p->value());
+      }
     }
     ThingManager.savesettings();
     ThingManager.restart_device = true;
@@ -200,6 +200,6 @@ void loop() {
   ms = millis();
   ThingManager.handle();
   //yield();
-  if (!ota_uploading) 
+  if (!ota_uploading)
     PrinterHandle();
 };
