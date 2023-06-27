@@ -43,7 +43,7 @@ const uint32_t serialBauds[] = { 115200, 57600, 250000, 500000, 921600 };
 //const uint32_t serialBauds[] = { 115200 };
 
 #define API_VERSION     "0.1"
-#define VERSION         "0.7.1"
+#define VERSION         "0.7.2"
 
 #define MAX_FILES_PER_LIST  10 // Maximum number of files sent by the file listing json
 
@@ -213,7 +213,6 @@ void handlePrint() {
   if (isPrinting) {
     const bool abortPrint = (restartPrint || cancelPrint);
     if (abortPrint || !gcodeFile.available()) {
-      //yield();
       gcodeFile.close();
       if (fwProgressCap)
         commandQueue.push("M530 S0");
@@ -223,29 +222,31 @@ void handlePrint() {
       printPause = false;
       isPrinting = false;
     }
-    else if (!printPause && commandQueue.getFreeSlots() > 4) {    // Keep some space for "service" commands
-      ++lastPrintedLine;
-      String line = gcodeFile.readStringUntil('\n'); // The G-Code line being worked on
-      filePos += line.length()+1; // readStringUntil does not include the eol char.
-      if (filePos > uploadedFileSize)
-        filePos = uploadedFileSize;
-      int pos = line.indexOf(';');
-      if (line.length() > 0 && pos != 0 && line[0] != '(' && line[0] != '\r') {
-        if (pos != -1)
-          line = line.substring(0, pos);
-        commandQueue.push(line);
-      }
-
-      // Send to printer completion (if supported)
-      printCompletion = (float)filePos / uploadedFileSize * 100.0;
+    else if (!printPause) {
       printTime = (ms - printStartTime) / 1000;
-      if (fwBuildPercentCap && printCompletion - prevM73Completion >= 1) {
-        commandQueue.push("M73 P" + String((int)printCompletion));
-        prevM73Completion = printCompletion;
-      }
-      if (fwProgressCap && printCompletion - prevM532Completion >= 0.1) {
-        commandQueue.push("M532 X" + String((int)(printCompletion * 10) / 10.0));
-        prevM532Completion = printCompletion;
+      if (commandQueue.getFreeSlots() > 4) {    // Keep some space for "service" commands
+        ++lastPrintedLine;
+        String line = gcodeFile.readStringUntil('\n'); // The G-Code line being worked on
+        filePos += line.length()+1; // readStringUntil does not include the eol char.
+        if (filePos > uploadedFileSize)
+          filePos = uploadedFileSize;
+        int pos = line.indexOf(';');
+        if (line.length() > 0 && pos != 0 && line[0] != '(' && line[0] != '\r') {
+          if (pos != -1)
+            line = line.substring(0, pos);
+          commandQueue.push(line);
+        }
+
+        // Send to printer completion (if supported)
+        printCompletion = (float)filePos / (float)uploadedFileSize * 100.0;
+        if (fwBuildPercentCap && (printCompletion - prevM73Completion >= 1 || (uint8_t)printCompletion == 100)) {
+          commandQueue.push("M73 P" + String((int)printCompletion));
+          prevM73Completion = printCompletion;
+        }
+        if (fwProgressCap && printCompletion - prevM532Completion >= 0.1) {
+          commandQueue.push("M532 X" + String((int)(printCompletion * 10) / 10.0));
+          prevM532Completion = printCompletion;
+        }
       }
     }
   }
@@ -647,7 +648,7 @@ inline String stringify(bool value) {
   return value ? "true" : "false";
 }
 
-inline void filesList(DynamicJsonDocument &doc, uint8_t index, String id = "") {
+inline void filesList(DynamicJsonDocument &doc, uint16_t index, String id = "") {
     MD5Builder md5;
     FileWrapper file;
     FileWrapper dir = storageFS.open("/");
@@ -817,7 +818,7 @@ void PrinterSetup() {
 
   webServer.on("/files/list", HTTP_GET, [&](AsyncWebServerRequest *request) {
     if (NoHeapToService(request)) return;
-    uint8_t index = 0;
+    uint16_t index = 0;
     if (request->hasParam("i")) {
       AsyncWebParameter *p = request->getParam("i");
       index = p->value().toInt();
